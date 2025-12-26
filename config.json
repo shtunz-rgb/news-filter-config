@@ -1,0 +1,34 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2025-12-24T14:00:00Z",
+  "sites": {
+    "yahoo.com": {
+      "enabled": true,
+      "priority": 10,
+      "articleSelectors": ["li.stream-item", "li.ntk-item"],
+      "headlineSelectors": ["h2", "h3"],
+      "substitutionMode": "overlay",
+      "infiniteScrollEnabled": true
+    },
+    "cnn.com": {
+      "enabled": true,
+      "priority": 9,
+      "articleSelectors": ["li.card.container__item"],
+      "headlineSelectors": ["span.container__headline-text"],
+      "substitutionMode": "overlay",
+      "infiniteScrollEnabled": false
+    },
+    "bbc.com": {
+      "enabled": true,
+      "priority": 8,
+      "articleSelectors": ["[data-testid='dundee-card']", "[data-testid='manchester-card']"],
+      "headlineSelectors": ["h2"],
+      "substitutionMode": "overlay",
+      "infiniteScrollEnabled": false
+    }
+  },
+  "fallback": {
+    "articleSelectors": ["article", ".article"],
+    "headlineSelectors": ["h1", "h2", "h3"]
+  }
+}
