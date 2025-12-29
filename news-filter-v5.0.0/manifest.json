@@ -1,0 +1,60 @@
+{
+  "manifest_version": 3,
+  "name": "News Filter v5.0.0",
+  "version": "5.0.0",
+  "description": "Filter news articles by keywords with layout-aware substitution and pre-emptive CSS injection",
+  "permissions": [
+    "storage",
+    "tabs",
+    "scripting",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://*/*",
+    "http://*/*",
+    "https://raw.githubusercontent.com/*",
+    "https://feeds.yahoo.com/*",
+    "http://feeds.bbc.co.uk/*",
+    "http://rss.cnn.com/*",
+    "https://www.theguardian.com/*",
+    "https://newsapi.org/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "images/icon16.png",
+      "48": "images/icon48.png",
+      "128": "images/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "images/icon16.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*/*",
+        "http://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "images/*"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}

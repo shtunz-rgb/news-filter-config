@@ -1,0 +1,76 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2025-12-24T14:00:00Z",
+  "description": "News Filter Extension - Remote Configuration",
+  "sites": {
+    "yahoo.com": {
+      "enabled": true,
+      "priority": 10,
+      "articleSelectors": [
+        "li.ntk-item",
+        "li.stream-item",
+        ".js-stream-content",
+        "[data-uuid]"
+      ],
+      "headlineSelectors": [
+        "h3.Fw(600)",
+        "[data-test-locator='item-title']",
+        ".js-stream-item-title"
+      ],
+      "substitutionMode": "overlay",
+      "notes": "Updated 2025-12-24 for infinite scroll support",
+      "infiniteScrollEnabled": true
+    },
+    "cnn.com": {
+      "enabled": true,
+      "priority": 9,
+      "articleSelectors": [
+        "li.card.container__item",
+        "li[data-component-name='card']",
+        "article.container__headline-link"
+      ],
+      "headlineSelectors": [
+        "[data-testid='card-headline']",
+        "span.container__headline-text",
+        "h3.container__headline"
+      ],
+      "substitutionMode": "overlay",
+      "notes": "Updated 2025-12-24 for card-based layout",
+      "infiniteScrollEnabled": true
+    },
+    "bbc.com": {
+      "enabled": true,
+      "priority": 8,
+      "articleSelectors": [
+        "[data-testid='dundee-card']",
+        "[data-testid='manchester-card']",
+        "[data-testid='chester-card']"
+      ],
+      "headlineSelectors": [
+        "[data-testid='card-headline']",
+        "h2[data-testid='card-headline']",
+        "h3[data-testid='card-headline']"
+      ],
+      "substitutionMode": "overlay",
+      "notes": "Updated 2025-12-24 for BBC card types",
+      "infiniteScrollEnabled": false
+    }
+  },
+  "fallback": {
+    "articleSelectors": [
+      "article",
+      ".article",
+      "[role='article']",
+      ".news-item",
+      ".story"
+    ],
+    "headlineSelectors": [
+      "h1",
+      "h2",
+      "h3",
+      "[role='heading']"
+    ],
+    "substitutionMode": "overlay",
+    "infiniteScrollEnabled": false
+  }
+}
