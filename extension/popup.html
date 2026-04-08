@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Content Filter</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      width: 320px;
+      padding: 16px;
+      margin: 0;
+      color: #333;
+    }
+    
+    h1 {
+      font-size: 20px;
+      margin-bottom: 16px;
+      color: #4285F4;
+      text-align: center;
+    }
+    
+    h2 {
+      font-size: 16px;
+      margin-top: 20px;
+      margin-bottom: 10px;
+    }
+    
+    .input-container {
+      display: flex;
+      margin-bottom: 16px;
+    }
+    
+    #keyword-input {
+      flex-grow: 1;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px 0 0 4px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+    
+    #keyword-input:focus {
+      border-color: #4285F4;
+    }
+    
+    #add-keyword {
+      padding: 10px 14px;
+      background-color: #4285F4;
+      color: white;
+      border: none;
+      border-radius: 0 4px 4px 0;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.3s;
+    }
+    
+    #add-keyword:hover {
+      background-color: #3367D6;
+    }
+    
+    .keyword-bank {
+      margin-top: 16px;
+      border: 1px solid #eee;
+      border-radius: 6px;
+      padding: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .keyword-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      background-color: #f8f9fa;
+      margin-bottom: 8px;
+      border-radius: 4px;
+      border-left: 3px solid #4285F4;
+      transition: background-color 0.2s;
+    }
+    
+    .keyword-item:hover {
+      background-color: #f1f3f4;
+    }
+    
+    .remove-keyword {
+      background-color: #f44336;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 5px 10px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background-color 0.2s;
+    }
+    
+    .remove-keyword:hover {
+      background-color: #d32f2f;
+    }
+    
+    .toggle-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding: 10px;
+      background-color: #f8f9fa;
+      border-radius: 6px;
+    }
+    
+    .toggle-label {
+      font-weight: bold;
+    }
+    
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 52px;
+      height: 26px;
+    }
+    
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 26px;
+    }
+    
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    
+    input:checked + .slider {
+      background-color: #4285F4;
+    }
+    
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+    
+    .empty-state {
+      text-align: center;
+      color: #888;
+      padding: 20px 0;
+      font-style: italic;
+    }
+    
+    .feedback-message {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      text-align: center;
+      transition: opacity 0.5s;
+      font-size: 14px;
+    }
+    
+    .status-indicator {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: 16px;
+      padding: 8px;
+      border-top: 1px solid #eee;
+      font-size: 12px;
+      color: #666;
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+    
+    .status-active {
+      background-color: #4caf50;
+    }
+    
+    .status-inactive {
+      background-color: #f44336;
+    }
+    
+    /* V2.4: Drawer styles */
+    .drawer-toggle {
+      width: 100%;
+      padding: 12px;
+      margin-top: 12px;
+      background: #f0f0f0;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background-color 0.2s;
+    }
+    
+    .drawer-toggle:hover {
+      background: #e8e8e8;
+    }
+    
+    .drawer-toggle-text {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .drawer-arrow {
+      font-size: 12px;
+      transition: transform 0.3s;
+    }
+    
+    .drawer-arrow.open {
+      transform: rotate(180deg);
+    }
+    
+    .drawer-count {
+      background-color: #dc3545;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      min-width: 20px;
+      text-align: center;
+    }
+    
+    .drawer-count.zero {
+      background-color: #28a745;
+    }
+    
+    .drawer-container {
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-top: none;
+      border-radius: 0 0 6px 6px;
+      background: white;
+      margin-top: -6px;
+      transition: max-height 0.3s ease-out;
+    }
+    
+    .drawer-container.hidden {
+      display: none;
+    }
+    
+    .article-entry {
+      padding: 10px 12px;
+      border-bottom: 1px solid #f0f0f0;
+      transition: background-color 0.2s;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    
+    .article-entry:hover {
+      background-color: #f8f9fa;
+    }
+    
+    .article-entry:last-child {
+      border-bottom: none;
+    }
+    
+    .keyword-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      background: #dc3545;
+      color: white;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    
+    /* V2.5: Website logo */
+    .article-logo {
+      width: 20px;
+      height: 20px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      object-fit: contain;
+      background: #f0f0f0;
+    }
+    
+    /* V2.5: Article content container */
+    .article-content {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .article-title {
+      font-size: 13px;
+      color: #333;
+      line-height: 1.4;
+      margin: 0;
+      word-wrap: break-word;
+    }
+    
+    /* V2.7: RTL support for Hebrew text */
+    .article-title[dir="rtl"] {
+      direction: rtl;
+      text-align: right;
+    }
+    
+    /* V2.5: Link icon */
+    .article-link-icon {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      cursor: pointer;
+      opacity: 0.6;
+      transition: opacity 0.2s;
+      margin-top: 2px;
+    }
+    
+    .article-link-icon:hover {
+      opacity: 1;
+    }
+    
+    .article-link-icon svg {
+      width: 100%;
+      height: 100%;
+      fill: #4285F4;
+    }
+    
+    .drawer-empty {
+      padding: 24px;
+      text-align: center;
+      color: #999;
+      font-size: 13px;
+      font-style: italic;
+    }
+    
+    /* Remote Configuration Status */
+    .config-status {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      margin-top: 12px;
+      background-color: #f0f7ff;
+      border: 1px solid #b3d9ff;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    
+    .config-info {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    
+    .config-label {
+      font-weight: bold;
+      color: #333;
+    }
+    
+    .config-version {
+      color: #666;
+      font-family: monospace;
+    }
+    
+    .refresh-config-btn {
+      background-color: #4285F4;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s;
+      min-width: 32px;
+    }
+    
+    .refresh-config-btn:hover {
+      background-color: #3367D6;
+    }
+    
+    .refresh-config-btn:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    
+    .refresh-config-btn.loading {
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    
+    .config-message {
+      padding: 8px;
+      margin-top: 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      text-align: center;
+    }
+    
+    .config-message.success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .config-message.error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    /* V6.1.0: Section Articles Feature */
+    .section-selector {
+      margin-top: 16px;
+      padding: 12px;
+      background-color: #f8f9fa;
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
+    }
+    
+    .section-label {
+      font-weight: bold;
+      font-size: 14px;
+      margin-bottom: 10px;
+      display: block;
+      color: #333;
+    }
+    
+    .section-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    
+    .section-button {
+      padding: 8px 12px;
+      background-color: white;
+      border: 2px solid #ddd;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    
+    .section-button:hover {
+      border-color: #4285F4;
+      background-color: #f0f7ff;
+    }
+    
+    .section-button.active {
+      background-color: #4285F4;
+      color: white;
+      border-color: #4285F4;
+    }
+    
+    .section-drawer-toggle {
+      width: 100%;
+      padding: 12px;
+      margin-top: 12px;
+      background: #f0f0f0;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background-color 0.2s;
+    }
+    
+    .section-drawer-toggle:hover {
+      background: #e8e8e8;
+    }
+    
+    .section-drawer-toggle.hidden {
+      display: none;
+    }
+    
+    .section-drawer-container {
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-top: none;
+      border-radius: 0 0 6px 6px;
+      background: white;
+      margin-top: -6px;
+      transition: max-height 0.3s ease-out;
+    }
+    
+    .section-drawer-container.hidden {
+      display: none;
+    }
+    
+    .section-drawer-empty {
+      padding: 24px;
+      text-align: center;
+      color: #999;
+      font-size: 13px;
+      font-style: italic;
+    }
+    
+    .section-loading {
+      padding: 20px;
+      text-align: center;
+      color: #666;
+      font-size: 13px;
+    }
+    
+    .section-error {
+      padding: 12px;
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+      border-radius: 4px;
+      margin-top: 8px;
+      font-size: 12px;
+    }
+    
+    .section-retry-btn {
+      background-color: #4285F4;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      margin-top: 8px;
+      transition: background-color 0.2s;
+    }
+    
+    .section-retry-btn:hover {
+      background-color: #3367D6;
+    }
+
+    .section-count {
+      background-color: #4285F4;
+    }
+    
+    .section-count.zero {
+      background-color: #6c757d;
+    }
+
+
+  </style>
+</head>
+<body>
+  <h1 id="extension-title">News Filter</h1>
+  
+  <div class="toggle-container">
+    <span class="toggle-label">Enable filtering</span>
+    <label class="toggle-switch">
+      <input type="checkbox" id="enable-toggle" checked>
+      <span class="slider"></span>
+    </label>
+  </div>
+  
+  <!-- V7.0.0: Substitution Mode Toggle -->
+  <div class="toggle-container" style="margin-top: 8px;">
+    <span class="toggle-label" title="Replace filtered articles with other content">Seamless mode</span>
+    <label class="toggle-switch">
+      <input type="checkbox" id="substitution-toggle" checked>
+      <span class="slider"></span>
+    </label>
+  </div>
+  
+  <div class="input-container">
+    <input type="text" id="keyword-input" placeholder="Enter keyword to filter">
+    <button id="add-keyword">Add</button>
+  </div>
+  
+  <div id="feedback-container"></div>
+  
+  <h2>Your keyword bank</h2>
+  <div class="keyword-bank" id="keyword-list">
+    <div class="empty-state" id="empty-state">No keywords added yet</div>
+  </div>
+  
+  <div class="status-indicator">
+    <div class="status-dot status-active" id="status-dot"></div>
+    <span id="status-text">Filtering active on current site</span>
+  </div>
+  
+  <!-- Remote Configuration Status -->
+  <div class="config-status" id="config-status">
+    <div class="config-info">
+      <span class="config-label">Config:</span>
+      <span class="config-version" id="config-version">Loading...</span>
+    </div>
+    <button class="refresh-config-btn" id="refresh-config-btn" title="Refresh remote configuration">&#8635;</button>
+  </div>
+  
+      <!-- V2.4: Recent Filtered Articles Drawer -->
+  <button class="drawer-toggle" id="drawer-toggle">
+    <div class="drawer-toggle-text">
+      <span class="drawer-arrow" id="drawer-arrow">&#9660;</span>
+      <span>Filtered (This Site)</span>
+    </div>
+    <span class="drawer-count" id="drawer-count">0</span>
+  </button>
+  
+  <div class="drawer-container hidden" id="drawer-container">
+    <div class="drawer-empty" id="drawer-empty">No articles filtered yet. Add keywords above to start.</div>
+    <div id="drawer-articles"></div>
+  </div>
+  
+
+  
+  <!-- V6.1.1: Section Articles Feature (at bottom) -->
+  <div class="section-selector" id="section-selector">
+    <label class="section-label">News Sections</label>
+    <div class="section-buttons" id="section-buttons">
+      <!-- Buttons will be generated dynamically by JavaScript based on detected site -->
+    </div>
+  </div>
+  
+  <button class="section-drawer-toggle hidden" id="section-drawer-toggle">
+    <div class="drawer-toggle-text">
+      <span class="drawer-arrow" id="section-drawer-arrow">&#9660;</span>
+      <span id="section-drawer-title">Section Articles</span>
+    </div>
+    <span class="drawer-count section-count" id="section-drawer-count">0</span>
+  </button>
+  
+  <div class="section-drawer-container hidden" id="section-drawer-container">
+    <div class="section-drawer-empty" id="section-drawer-empty">Select a section above to view articles</div>
+    <div id="section-drawer-articles"></div>
+  </div>
+  
+  <script src="cnn-sections-config.js"></script>
+  <script src="bbc-sections-config.js"></script>
+  <script src="yahoo-sections-config.js"></script>
+  <script src="ynet-sections-config.js"></script>
+  <script src="section-articles-fetcher.js"></script>
+  <script src="section-articles-popup.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

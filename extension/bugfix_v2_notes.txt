@@ -1,0 +1,106 @@
+Bug Diagnosis v2 — Comparing pasted_content_5.txt (original) vs pasted_content_6.txt (after substitution)
+==============================================================================================================
+
+ORIGINAL STRUCTURE (pasted_content_5.txt):
+- <li> card element with data-open-link="/2026/04/03/politics/alcatraz-reopen-trump-white-house-budget"
+- First <a> (lines 5-27): wraps the ENTIRE IMAGE BLOCK
+  - Contains: div.container__item-media-wrapper > div.container__item-media > div.image > div.image__container > <picture> > <source>x4 + <img>
+  - Also contains: div.image__metadata > figcaption (credit text)
+  - data-zjs-card_link_type="image"
+- Second <a> (lines 28-34): wraps the HEADLINE TEXT
+  - Contains: div.container__text > div.container__headline > span.container__headline-text
+  - data-zjs-card_link_type="link"
+
+AFTER SUBSTITUTION (pasted_content_6.txt):
+- <li> now has class "skeep-substituted" and green border style ✓
+- First <a> (line 5): ALL CHILDREN GONE. Now contains only plain text "Who's got an EGOT?"
+  - href correctly changed to replacement URL ✓
+  - But all DOM children (media wrapper, picture, source, img) are DESTROYED
+- Second <a> (lines 6-12): Structure intact, but headline NOT replaced
+  - href correctly changed to replacement URL ✓
+  - span.container__headline-text still shows "Trump wants $152 million..."
+
+ROOT CAUSE ANALYSIS:
+1. IMAGE DESTROYED: The _replaceImage function finds the <img> and changes its src — this works.
+   But then _replaceHeadline runs. The selector chain includes 'h2, h3, h4, [class*="headline"]'.
+   
+   Wait — does the first <a> contain anything matching [class*="headline"]? NO.
+   The first <a> contains: container__item-media-wrapper, container__item-media, image, image__container.
+   None of these match [class*="headline"].
+   
+   So _replaceHeadline should correctly find the span.container__headline-text in the SECOND <a>.
+   And it should set its textContent to the replacement title.
+   
+   BUT the output shows the headline span still has the ORIGINAL text.
+   AND the first <a> has the replacement title as plain text.
+   
+   This means something is setting the first <a>'s textContent to the replacement title.
+   
+   WAIT — I think I found it. CNN has its own JavaScript that uses data-zjs-card_name attribute
+   to render card content. When we change the href, CNN's own mutation observer or click handler
+   might re-render the card.
+   
+   Actually, more likely: the _addGreenBorder function removes overlays. But there are no overlays
+   because we go straight to DB substitution without applying blur first.
+   
+   Let me look at this differently. The _replaceImage function:
+   - Sets img.src = newImageUrl ✓
+   - Sets img.alt = altText (which is replacement.title = "Who's got an EGOT?")
+   - Clears srcset
+   - Sets data-src, data-lazySrc
+   - Finds picture, sets all source.srcset
+   
+   None of this should destroy the first <a>'s children.
+   
+   BUT WAIT: CNN's <img> has onerror="imageLoadError(this)". If the new image URL fails to load,
+   CNN's imageLoadError function might remove the entire image container!
+   
+   That's one possibility. But it doesn't explain why the first <a> has text "Who's got an EGOT?".
+   
+   ACTUALLY — I think the issue is that CNN's own JavaScript has a MutationObserver or similar
+   that watches for changes to the card and re-renders it. When we change the img.src, CNN's
+   code detects the mutation and re-renders the first <a> tag, replacing its innerHTML with
+   just the card title from some internal data store.
+   
+   OR: The _replaceLinks function is the culprit. Let me check what it does:
+   - It calls element.querySelectorAll('a.container__link, a[data-open-link], a[href*="/"]')
+   - For each link, it sets link.href = newUrl
+   
+   This should ONLY change href, not content. Unless... there's something else going on.
+   
+   MOST LIKELY EXPLANATION:
+   CNN uses data-zjs-card_name attribute which still contains the original title.
+   CNN's JavaScript might use this to re-render the card after our DOM changes.
+   
+   OR: The issue is simpler than I think. Let me check if the _replaceHeadline function
+   is accidentally finding an element in the FIRST <a> instead of the SECOND <a>.
+   
+   The selector: 'span.container__headline-text, h3.container__headline, h2, h3, h4, [class*="headline"]'
+   
+   In the first <a>, there is NO element matching any of these selectors.
+   In the second <a>, span.container__headline-text matches.
+   
+   So querySelector on the <li> should find the span in the second <a>. That's correct.
+   And _replaceHeadline sets headlineElement.textContent = newText.
+   
+   But the output shows the span STILL has the original text. This means either:
+   a) _replaceHeadline was never called (headline was null)
+   b) _replaceHeadline was called but CNN's JS reverted it
+   c) Something else overwrote it after
+   
+   And the first <a> having "Who's got an EGOT?" as plain text means something set
+   firstAnchor.textContent = replacementTitle, which would destroy all children.
+   
+   FINAL THEORY: CNN's own JavaScript is watching for href changes on the <a> tags.
+   When we change the href, CNN's code re-renders the card. The first <a> (image link)
+   gets re-rendered with just the title text (from some internal state), and the second <a>
+   (headline link) gets re-rendered with the original title.
+   
+FIX STRATEGY:
+1. Clone the image block BEFORE any changes
+2. Replace headline text FIRST (before CNN's JS can react)
+3. Replace image src AFTER headline
+4. Replace links LAST
+5. Use requestAnimationFrame or setTimeout to batch changes
+6. Also update data-open-link on the <li> and data-zjs-card_name on the <a> tags
+7. Consider using element.style.pointerEvents = 'none' temporarily to prevent CNN's handlers

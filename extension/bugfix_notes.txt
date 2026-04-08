@@ -1,0 +1,86 @@
+Bug Diagnosis from pasted_content_5.txt vs pasted_content_6.txt
+================================================================
+
+CNN card structure (this specific card type: container_lead-plus-headlines-with-images):
+- The card is an <li> element
+- It contains TWO separate <a class="container__link"> elements:
+  1. First <a> wraps the IMAGE block (the entire media wrapper with <picture>, <source>, <img>)
+  2. Second <a> wraps the HEADLINE TEXT (the <span class="container__headline-text">)
+
+What went wrong:
+1. _replaceLinks() uses querySelectorAll('a.container__link, a[data-open-link], a[href*="/"]')
+   This matches BOTH <a> tags. Setting link.href is fine — it only changes the href attribute.
+   BUT the first <a> tag's textContent was set to "Who's got an EGOT?" — this means
+   something else is overwriting the first <a> tag's innerHTML.
+
+Wait — looking more carefully at pasted_content_6.txt line 5:
+  <a href="...egot-winners-list" ...>Who's got an EGOT?</a>
+
+The first <a> tag now has ONLY text "Who's got an EGOT?" and ALL its children
+(the entire media wrapper div, picture, source, img) are GONE.
+
+This means the first <a> tag's innerHTML was replaced with just the title text.
+This is NOT what _replaceLinks does — it only sets .href.
+
+The real culprit: The text-only substitute() method was ALSO called somewhere,
+or the _replaceHeadline function matched the first <a> tag instead of the <span>.
+
+Actually wait — looking at the CNN substituteWithImage:
+1. First it calls _replaceImage on the <img> — this should work fine
+2. Then it calls _replaceHeadline on span.container__headline-text — this should work fine
+3. Then it calls _replaceLinks — this should only change .href
+
+But the output shows the first <a> tag has text content "Who's got an EGOT?" and no children.
+This means something is setting the textContent or innerHTML of the first <a> tag.
+
+WAIT — I think I see it now. The _addGreenBorder function removes blur wrappers.
+If a blur overlay was applied BEFORE performDBSubstitution ran (because applyFilter
+first applies the overlay, then tries substitution), the blur wrapper removal could
+be destroying DOM structure.
+
+Let me check the applyFilter flow more carefully...
+
+Actually, looking at the applyFilter code around line 1960-1965:
+It goes directly to performDBSubstitution without applying overlay first.
+So no blur is applied before substitution.
+
+Let me re-examine. The issue must be in how the headline selector works.
+The selector 'span.container__headline-text' should match the span inside the SECOND <a>.
+But what if the first <a> tag also matches one of the fallback selectors like 'h2, h3, h4'?
+
+No — the first <a> doesn't contain h2/h3/h4. It contains divs and picture/img.
+
+REAL ROOT CAUSE FOUND:
+Looking at pasted_content_6.txt again — the first <a> tag has text "Who's got an EGOT?"
+This is the REPLACEMENT TITLE. And the second <a> tag still has the ORIGINAL title.
+
+This means _replaceHeadline is matching something INSIDE the first <a> tag, not the span
+in the second <a> tag. The selector chain includes '[class*="headline"]' which does NOT
+match anything in the first <a>. But it also includes 'h2, h3, h4' which also doesn't match.
+
+Wait — could it be that the img.alt was set to the title, and then something else happened?
+No, _replaceImage sets img.alt, not the <a> text.
+
+Actually, I think the issue is that the first <a> tag's ENTIRE CONTENT was replaced.
+The _replaceImage function calls imgElement.closest('picture') and replaces <source> srcsets.
+But that shouldn't destroy the DOM.
+
+Let me look at this differently. In the replacement HTML (pasted_content_6.txt):
+- Line 5: First <a> has ONLY text "Who's got an EGOT?" — all children gone
+- Lines 6-12: Second <a> still has original structure with headline span
+
+The fact that the first <a> contains the replacement title as plain text suggests
+that something set firstAnchor.textContent = replacementTitle, which would destroy
+all child nodes.
+
+Could it be the old text-only substitute() being called in ADDITION to substituteWithImage()?
+If both paths fire... but the code shows an if/else branch.
+
+OR: The issue is in how CNN's page JavaScript works. CNN might have its own mutation observer
+that detects the href change and re-renders the card, destroying our changes.
+
+Most likely fix: The order of operations matters. We should:
+1. Replace headline FIRST (in the second <a>)
+2. Replace image SECOND (in the first <a>)  
+3. Replace links LAST (only change href, don't touch content)
+4. Also: need to update data-open-link on the <li> itself
