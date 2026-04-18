@@ -165,9 +165,12 @@ async function fetchDBReplacement(params, tabId) {
 
     // Step 2: Query articles matching layout_type from those sections
     const sectionFilter = 'section_id=in.(' + sectionIds.join(',') + ')';
+    // Only return articles that have not yet expired (server-side TTL enforcement)
+    const nowIso = new Date().toISOString();
     let articlesUrl = SUPABASE_URL + '/rest/v1/articles?select=id,title,url,image_url,actual_width,actual_height,display_width,display_height,title_word_count,layout_type,section_id' +
       '&is_excluded=eq.false' +
       '&has_image=eq.true' +
+      '&expires_at=gt.' + nowIso +
       '&' + sectionFilter +
       '&limit=50';
     
