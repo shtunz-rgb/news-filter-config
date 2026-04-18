@@ -1808,6 +1808,32 @@ class NewsFilterExtension {
     if (className.includes('slotView')) {
       return element;  // Return the slotView card immediately
     }
+
+    // V8.0.7 FIX: CNN container_lead-package atomic unit
+    // This layout has a .container__title (the big headline) AND a separate <li> card
+    // that both point to the same article. They must be treated as one unit so the
+    // extension replaces the whole container once, not each part independently.
+    // Strategy: when either part is encountered, walk up to the outer
+    // div.container_lead-package and return that as the single container.
+    if (className.includes('container__title') ||
+        className.includes('container_lead-package__item') ||
+        (className.includes('card') && className.includes('container_lead-package'))) {
+      let node = element.parentElement;
+      let d = 0;
+      while (node && node !== document.body && d < 8) {
+        const nc = node.className || '';
+        const nt = node.tagName ? node.tagName.toLowerCase() : '';
+        if (nt === 'div' && (nc.includes('container_lead-package') && !nc.includes('__'))) {
+          return node;  // Found the outer container_lead-package wrapper
+        }
+        // Also accept the div with data-layout attribute
+        if (nt === 'div' && node.getAttribute && node.getAttribute('data-layout') === 'container_lead-package') {
+          return node;
+        }
+        node = node.parentElement;
+        d++;
+      }
+    }
     
     // V6.4.7 FIX: For opinionsSlotItem on ynet, traverse up to find the full container
     // This ensures the overlay covers both text AND image
