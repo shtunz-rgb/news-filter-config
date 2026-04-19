@@ -1868,7 +1868,31 @@ class NewsFilterExtension {
         return current;  // Found Yahoo article container - return immediately
       }
       
-      // Check for CNN's card container
+      // V8.0.7 FIX: CNN container_lead-package — walk up to the outer wrapper
+      // The <li> card inside a lead-package has class 'container_lead-package__item'.
+      // We must return the outer div.container.container_lead-package so that both
+      // the title div and the card resolve to the same container (deduplicated by
+      // processedContainers Set in scanAndFilter).
+      if (className.includes('container_lead-package__item') ||
+          (className.includes('card') && className.includes('container_lead-package'))) {
+        // Walk up to the outer div that has BOTH 'container' and 'container_lead-package'
+        let node = current.parentElement;
+        let d = 0;
+        while (node && node !== document.body && d < 8) {
+          const nc = node.className || '';
+          const nt = node.tagName ? node.tagName.toLowerCase() : '';
+          if (nt === 'div' && nc.includes('container_lead-package') && nc.includes('container') &&
+              !nc.includes('container_lead-package__') && !nc.includes('container__')) {
+            return node;  // Outer div.container.container_lead-package
+          }
+          node = node.parentElement;
+          d++;
+        }
+        // Fallback: return the li itself if wrapper not found
+        return current;
+      }
+
+      // Check for CNN's standard card container (NOT inside a lead-package)
       if (className.includes('card') && className.includes('container__item') && tagName === 'li') {
         return current;  // Found CNN article container
       }
