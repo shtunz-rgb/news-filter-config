@@ -1809,30 +1809,36 @@ class NewsFilterExtension {
       return element;  // Return the slotView card immediately
     }
 
-    // V8.0.9 FIX: CNN container_lead-package — container__title handling
-    // The container__title div is the large bold headline that sits ABOVE the <li> card
-    // in a container_lead-package layout. Both point to the same article.
-    // Strategy: when container__title is encountered, find the first <li> card INSIDE
-    // the same outer wrapper and return that <li> as the container. This ensures
-    // substituteWithImage() receives a proper CNN card element (with a.container__link,
-    // img, etc.) rather than the outer wrapper div which has none of those.
-    // The <li> card itself will be skipped by processedContainers deduplication.
-    if (className.includes('container__title')) {
-      // Walk up to find the outer container_lead-package wrapper
+    // V8.1.0 FIX: CNN container_lead-package — container__title handling
+    // The container__title div (class: container__title container_lead-package__title) is
+    // the large bold headline that sits ABOVE the cards-wrapper in a lead-package layout.
+    // It is a SIBLING of div.container_lead-package__cards-wrapper, NOT a parent of it.
+    // DOM structure:
+    //   div.container.container_lead-package          <- outer wrapper
+    //     div.container__title.container_lead-package__title  <- this element
+    //       a.container__title-url > h2               <- headline text
+    //     div.container_lead-package__cards-wrapper   <- sibling
+    //       div.container__field-wrapper
+    //         ul.container__field-links
+    //           li.card.container__item               <- the actual card we want
+    // Strategy: walk up to the outer wrapper, then search the ENTIRE subtree for
+    // the first li.card.container__item (which lives in the sibling cards-wrapper).
+    if (className.includes('container__title') && className.includes('container_lead-package')) {
       let node = element.parentElement;
       let d = 0;
       while (node && node !== document.body && d < 8) {
         const nc = node.className || '';
         if (nc.includes('container_lead-package') && !nc.includes('container_lead-package__')) {
-          // Found the outer wrapper — now find the first <li> card inside it
+          // Found the outer wrapper — search its entire subtree for the first <li> card
           const liCard = node.querySelector('li.card.container__item');
           if (liCard) return liCard;  // Return the actual card element
+          // No card found — fall through to default handling
           break;
         }
         node = node.parentElement;
         d++;
       }
-      // Fallback: return element itself if no card found
+      // Fallback: return element itself so it at least gets blurred
     }
     
     // V6.4.7 FIX: For opinionsSlotItem on ynet, traverse up to find the full container
