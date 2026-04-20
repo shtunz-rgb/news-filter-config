@@ -1809,30 +1809,30 @@ class NewsFilterExtension {
       return element;  // Return the slotView card immediately
     }
 
-    // V8.0.7 FIX: CNN container_lead-package atomic unit
-    // This layout has a .container__title (the big headline) AND a separate <li> card
-    // that both point to the same article. They must be treated as one unit so the
-    // extension replaces the whole container once, not each part independently.
-    // Strategy: when either part is encountered, walk up to the outer
-    // div.container_lead-package and return that as the single container.
-    if (className.includes('container__title') ||
-        className.includes('container_lead-package__item') ||
-        (className.includes('card') && className.includes('container_lead-package'))) {
+    // V8.0.9 FIX: CNN container_lead-package — container__title handling
+    // The container__title div is the large bold headline that sits ABOVE the <li> card
+    // in a container_lead-package layout. Both point to the same article.
+    // Strategy: when container__title is encountered, find the first <li> card INSIDE
+    // the same outer wrapper and return that <li> as the container. This ensures
+    // substituteWithImage() receives a proper CNN card element (with a.container__link,
+    // img, etc.) rather than the outer wrapper div which has none of those.
+    // The <li> card itself will be skipped by processedContainers deduplication.
+    if (className.includes('container__title')) {
+      // Walk up to find the outer container_lead-package wrapper
       let node = element.parentElement;
       let d = 0;
       while (node && node !== document.body && d < 8) {
         const nc = node.className || '';
-        const nt = node.tagName ? node.tagName.toLowerCase() : '';
-        if (nt === 'div' && (nc.includes('container_lead-package') && !nc.includes('__'))) {
-          return node;  // Found the outer container_lead-package wrapper
-        }
-        // Also accept the div with data-layout attribute
-        if (nt === 'div' && node.getAttribute && node.getAttribute('data-layout') === 'container_lead-package') {
-          return node;
+        if (nc.includes('container_lead-package') && !nc.includes('container_lead-package__')) {
+          // Found the outer wrapper — now find the first <li> card inside it
+          const liCard = node.querySelector('li.card.container__item');
+          if (liCard) return liCard;  // Return the actual card element
+          break;
         }
         node = node.parentElement;
         d++;
       }
+      // Fallback: return element itself if no card found
     }
     
     // V6.4.7 FIX: For opinionsSlotItem on ynet, traverse up to find the full container
@@ -1868,31 +1868,7 @@ class NewsFilterExtension {
         return current;  // Found Yahoo article container - return immediately
       }
       
-      // V8.0.7 FIX: CNN container_lead-package — walk up to the outer wrapper
-      // The <li> card inside a lead-package has class 'container_lead-package__item'.
-      // We must return the outer div.container.container_lead-package so that both
-      // the title div and the card resolve to the same container (deduplicated by
-      // processedContainers Set in scanAndFilter).
-      if (className.includes('container_lead-package__item') ||
-          (className.includes('card') && className.includes('container_lead-package'))) {
-        // Walk up to the outer div that has BOTH 'container' and 'container_lead-package'
-        let node = current.parentElement;
-        let d = 0;
-        while (node && node !== document.body && d < 8) {
-          const nc = node.className || '';
-          const nt = node.tagName ? node.tagName.toLowerCase() : '';
-          if (nt === 'div' && nc.includes('container_lead-package') && nc.includes('container') &&
-              !nc.includes('container_lead-package__') && !nc.includes('container__')) {
-            return node;  // Outer div.container.container_lead-package
-          }
-          node = node.parentElement;
-          d++;
-        }
-        // Fallback: return the li itself if wrapper not found
-        return current;
-      }
-
-      // Check for CNN's standard card container (NOT inside a lead-package)
+      // Check for CNN's card container (standard + lead-package cards)
       if (className.includes('card') && className.includes('container__item') && tagName === 'li') {
         return current;  // Found CNN article container
       }
