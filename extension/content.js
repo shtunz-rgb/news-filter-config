@@ -1809,36 +1809,29 @@ class NewsFilterExtension {
       return element;  // Return the slotView card immediately
     }
 
-    // V8.1.0 FIX: CNN container_lead-package — container__title handling
-    // The container__title div (class: container__title container_lead-package__title) is
-    // the large bold headline that sits ABOVE the cards-wrapper in a lead-package layout.
-    // It is a SIBLING of div.container_lead-package__cards-wrapper, NOT a parent of it.
-    // DOM structure:
-    //   div.container.container_lead-package          <- outer wrapper
-    //     div.container__title.container_lead-package__title  <- this element
-    //       a.container__title-url > h2               <- headline text
-    //     div.container_lead-package__cards-wrapper   <- sibling
-    //       div.container__field-wrapper
-    //         ul.container__field-links
-    //           li.card.container__item               <- the actual card we want
-    // Strategy: walk up to the outer wrapper, then search the ENTIRE subtree for
-    // the first li.card.container__item (which lives in the sibling cards-wrapper).
+    // V8.1.1 FIX: CNN container_lead-package — container__title and card handling
+    // The container_lead-package is a single-article widget with this structure:
+    //   div.container.container_lead-package          <- outer wrapper (the ONE container)
+    //     div.container__title.container_lead-package__title  <- title div
+    //     div.container_lead-package__cards-wrapper   <- cards wrapper
+    //       li.card.container__item                   <- the card
+    // Both the title div and the <li> card must resolve to the SAME outer wrapper
+    // so that one overlay covers the entire widget.
+    // isStreamWrapper() now correctly returns false for container_lead-package,
+    // so applyFilter() will process the outer wrapper normally.
     if (className.includes('container__title') && className.includes('container_lead-package')) {
+      // Walk up to the outer div.container.container_lead-package
       let node = element.parentElement;
       let d = 0;
       while (node && node !== document.body && d < 8) {
         const nc = node.className || '';
         if (nc.includes('container_lead-package') && !nc.includes('container_lead-package__')) {
-          // Found the outer wrapper — search its entire subtree for the first <li> card
-          const liCard = node.querySelector('li.card.container__item');
-          if (liCard) return liCard;  // Return the actual card element
-          // No card found — fall through to default handling
-          break;
+          return node;  // Return the outer wrapper as the single container
         }
         node = node.parentElement;
         d++;
       }
-      // Fallback: return element itself so it at least gets blurred
+      // Fallback: return element itself
     }
     
     // V6.4.7 FIX: For opinionsSlotItem on ynet, traverse up to find the full container
@@ -1874,9 +1867,23 @@ class NewsFilterExtension {
         return current;  // Found Yahoo article container - return immediately
       }
       
-      // Check for CNN's card container (standard + lead-package cards)
+      // Check for CNN's card container
       if (className.includes('card') && className.includes('container__item') && tagName === 'li') {
-        return current;  // Found CNN article container
+        // V8.1.1: If this <li> is inside a container_lead-package, return the outer wrapper
+        // so it deduplicates with the container__title element processed earlier.
+        if (className.includes('container_lead-package')) {
+          let node = current.parentElement;
+          let d = 0;
+          while (node && node !== document.body && d < 8) {
+            const nc = node.className || '';
+            if (nc.includes('container_lead-package') && !nc.includes('container_lead-package__')) {
+              return node;  // Return the outer wrapper
+            }
+            node = node.parentElement;
+            d++;
+          }
+        }
+        return current;  // Standard CNN card
       }
       
       // V4.2 FIX: Check for BBC card containers (dundee-card, manchester-card, chester-card, etc.)
@@ -1908,6 +1915,14 @@ class NewsFilterExtension {
     
     const className = element.className || '';
     const tagName = element.tagName ? element.tagName.toLowerCase() : '';
+
+    // V8.1.1 FIX: container_lead-package is a SINGLE-article widget, not a stream.
+    // It contains exactly one article (title + image card + headline card) and must
+    // never be treated as a stream wrapper. Without this guard, applyFilter() skips
+    // the entire widget with 'Skipping overlay on stream wrapper'.
+    if (className.includes('container_lead-package') && !className.includes('container_lead-package__')) {
+      return false;
+    }
     
     // V4.1 FIX: CNN-specific patterns with correct naming conventions
     const streamWrapperPatterns = [

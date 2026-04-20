@@ -211,12 +211,27 @@ const SubstitutionStrategies = {
     //   2. Replace image src inside the FIRST <a> (via img.image__dam-img)
     //   3. Update href on BOTH <a> tags individually (never set textContent on <a>)
     //   4. Update CNN data attributes to prevent CNN's JS from reverting our changes
+    // V8.1.1: element may be the outer div.container.container_lead-package wrapper.
+    //   In that case, find the inner li.card.container__item for DOM operations,
+    //   but apply the visual border/label to the outer wrapper so the entire widget
+    //   (title + image + headline) is visually covered.
     substituteWithImage(element, replacement, keyword) {
       console.log(`[CNN v${SubstitutionStrategies.version}] Image substitution (DB)`);
       
       try {
+        // V8.1.1: If element is the outer container_lead-package wrapper, find the inner card
+        const ec = element.className || '';
+        let cardElement = element;
+        if (ec.includes('container_lead-package') && !ec.includes('container_lead-package__')) {
+          const innerCard = element.querySelector('li.card.container__item');
+          if (innerCard) {
+            cardElement = innerCard;
+            console.log('[CNN] lead-package: using inner li.card for DOM operations');
+          }
+        }
+
         // Identify the two <a> tags in the CNN card
-        const allLinks = element.querySelectorAll('a.container__link');
+        const allLinks = cardElement.querySelectorAll('a.container__link');
         const imageLink = allLinks.length > 1 ? allLinks[0] : null;
         const headlineLink = allLinks.length > 1 ? allLinks[1] : allLinks[0];
         
@@ -224,13 +239,13 @@ const SubstitutionStrategies = {
 
         // Step 1: Replace headline text FIRST
         // Target the specific span inside the headline <a> — never set textContent on the <a> itself
-        const headline = element.querySelector('span.container__headline-text');
+        const headline = cardElement.querySelector('span.container__headline-text');
         if (headline) {
           SubstitutionStrategies._replaceHeadline(headline, replacement.title);
           console.log('[CNN] Headline span replaced');
         } else {
           // Fallback: look for headline only inside the headline link (second <a>)
-          const searchScope = headlineLink || element;
+          const searchScope = headlineLink || cardElement;
           const fallbackHeadline = searchScope.querySelector('h2, h3, h4, [class*="headline"]');
           if (fallbackHeadline) {
             SubstitutionStrategies._replaceHeadline(fallbackHeadline, replacement.title);
@@ -239,15 +254,15 @@ const SubstitutionStrategies = {
         }
 
         // Step 2: Replace image inside the image <a> (first anchor)
-        // Search within the media wrapper first, then fall back to the whole element
-        const imgContainer = element.querySelector('.container__item-media-wrapper') || imageLink || element;
+        // Search within the media wrapper first, then fall back to the card element
+        const imgContainer = cardElement.querySelector('.container__item-media-wrapper') || imageLink || cardElement;
         const img = imgContainer.querySelector('img.image__dam-img') || imgContainer.querySelector('picture img') || imgContainer.querySelector('img');
         if (img) {
           SubstitutionStrategies._replaceImage(img, replacement.imageUrl, replacement.title);
           console.log('[CNN] Image replaced');
           
           // Also update the data-url on the image wrapper div
-          const imageDiv = element.querySelector('div.image[data-url]');
+          const imageDiv = cardElement.querySelector('div.image[data-url]');
           if (imageDiv) {
             imageDiv.dataset.url = replacement.imageUrl;
           }
@@ -265,12 +280,17 @@ const SubstitutionStrategies = {
         
         // Step 4: Update CNN-specific data attributes to prevent CNN's JS from re-rendering
         // Update data-open-link on the <li> card element
-        if (element.dataset && element.dataset.openLink !== undefined) {
-          element.dataset.openLink = replacement.url;
+        if (cardElement.dataset && cardElement.dataset.openLink !== undefined) {
+          cardElement.dataset.openLink = replacement.url;
         }
         // Also check for data-open-link as a direct attribute
-        if (element.hasAttribute('data-open-link')) {
-          element.setAttribute('data-open-link', replacement.url);
+        if (cardElement.hasAttribute('data-open-link')) {
+          cardElement.setAttribute('data-open-link', replacement.url);
+        }
+        // Also update the outer wrapper's data-collapsed-text and data-title if present
+        if (element !== cardElement) {
+          if (element.hasAttribute('data-collapsed-text')) element.setAttribute('data-collapsed-text', replacement.title);
+          if (element.hasAttribute('data-title')) element.setAttribute('data-title', replacement.title);
         }
         
         // Update data-zjs-card_name on all <a> tags (CNN analytics attribute containing the title)
@@ -283,9 +303,18 @@ const SubstitutionStrategies = {
             link.setAttribute('data-zjs-canonical_url', replacement.url);
           }
         });
+        // Also update the title link in the container__title div
+        if (element !== cardElement) {
+          const titleLink = element.querySelector('a.container__title-url');
+          if (titleLink) {
+            titleLink.href = replacement.url;
+            const titleH2 = titleLink.querySelector('h2');
+            if (titleH2) titleH2.textContent = replacement.title;
+          }
+        }
 
         // Update the image credit to remove original attribution
-        const credit = element.querySelector('figcaption.image__credit');
+        const credit = cardElement.querySelector('figcaption.image__credit');
         if (credit) {
           credit.textContent = '';
         }
@@ -300,7 +329,8 @@ const SubstitutionStrategies = {
         labelContainers.forEach(lbl => lbl.remove());
         console.log(`[CNN] Removed ${labelContainers.length} label element(s)`);
 
-        // Step 6: Clean visual indicator + keyword label
+        // Step 6: Clean visual indicator + keyword label applied to the OUTER element
+        // (covers the entire widget including title div + cards wrapper)
         SubstitutionStrategies._addGreenBorder(element);
         SubstitutionStrategies._addKeywordLabel(element, keyword);
         
