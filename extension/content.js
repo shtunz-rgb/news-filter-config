@@ -1790,6 +1790,27 @@ class NewsFilterExtension {
             this.applyFilter(articleContainer, matchedKeyword);
             filteredCount++;
             processedContainers.add(articleContainer);
+            // V8.1.2: Mark ALL child article/headline elements inside the container
+            // as processed so the periodic scan and MutationObserver never re-process
+            // them. This is critical for composite containers like container_lead-package
+            // where the outer wrapper is the filter target but the inner <li> card and
+            // container__title div are separate elements in the scan list.
+            if (articleContainer !== element) {
+              const compiledSel = this.compiledSelectors;
+              const headlineSel = this.getHeadlineSelectors();
+              if (compiledSel) {
+                articleContainer.querySelectorAll(compiledSel).forEach(child => {
+                  this.detector.markAsProcessed(child);
+                });
+              }
+              if (headlineSel) {
+                articleContainer.querySelectorAll(headlineSel).forEach(child => {
+                  this.detector.markAsProcessed(child);
+                });
+              }
+              // Also mark the container itself
+              this.detector.markAsProcessed(articleContainer);
+            }
           }
         }
         this.detector.markAsProcessed(element);
@@ -2023,6 +2044,14 @@ class NewsFilterExtension {
               this.applyFilter(articleContainer, matchedKeyword);
               filteredCount++;
               processedContainers.add(articleContainer);
+              // V8.1.2: Mark all child elements inside composite containers as processed
+              if (articleContainer !== article) {
+                const compiledSel = this.compiledSelectors;
+                const headlineSel = this.getHeadlineSelectors();
+                if (compiledSel) articleContainer.querySelectorAll(compiledSel).forEach(c => this.detector.markAsProcessed(c));
+                if (headlineSel) articleContainer.querySelectorAll(headlineSel).forEach(c => this.detector.markAsProcessed(c));
+                this.detector.markAsProcessed(articleContainer);
+              }
             }
           }
         }
@@ -2084,8 +2113,14 @@ class NewsFilterExtension {
                 this.applyFilter(articleContainer, matchedKeyword);
                 filteredCount++;
                 processedContainers.add(articleContainer);
-                // V7.0.4 FIX: Mark container as processed to prevent infinite loop after substitution
+                // V8.1.2: Mark all child elements inside composite containers as processed
                 this.detector.markAsProcessed(articleContainer);
+                if (articleContainer !== article) {
+                  const compiledSel = this.compiledSelectors;
+                  const headlineSel = this.getHeadlineSelectors();
+                  if (compiledSel) articleContainer.querySelectorAll(compiledSel).forEach(c => this.detector.markAsProcessed(c));
+                  if (headlineSel) articleContainer.querySelectorAll(headlineSel).forEach(c => this.detector.markAsProcessed(c));
+                }
               }
             }
             this.detector.markAsProcessed(article);
