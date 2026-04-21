@@ -1801,15 +1801,20 @@ class NewsFilterExtension {
               if (compiledSel) {
                 articleContainer.querySelectorAll(compiledSel).forEach(child => {
                   this.detector.markAsProcessed(child);
+                  // V8.1.3: Also add skeep-substituted class so the periodic scan
+                  // (which checks classList, not isProcessed) also skips these children
+                  child.classList.add('skeep-substituted');
                 });
               }
               if (headlineSel) {
                 articleContainer.querySelectorAll(headlineSel).forEach(child => {
                   this.detector.markAsProcessed(child);
+                  child.classList.add('skeep-substituted');
                 });
               }
               // Also mark the container itself
               this.detector.markAsProcessed(articleContainer);
+              articleContainer.classList.add('skeep-substituted');
             }
           }
         }
@@ -2044,13 +2049,16 @@ class NewsFilterExtension {
               this.applyFilter(articleContainer, matchedKeyword);
               filteredCount++;
               processedContainers.add(articleContainer);
-              // V8.1.2: Mark all child elements inside composite containers as processed
+              // V8.1.3: Mark all child elements inside composite containers as processed
+              // AND add skeep-substituted class so the periodic scan (which checks classList)
+              // also skips these children on subsequent ticks.
               if (articleContainer !== article) {
                 const compiledSel = this.compiledSelectors;
                 const headlineSel = this.getHeadlineSelectors();
-                if (compiledSel) articleContainer.querySelectorAll(compiledSel).forEach(c => this.detector.markAsProcessed(c));
-                if (headlineSel) articleContainer.querySelectorAll(headlineSel).forEach(c => this.detector.markAsProcessed(c));
+                if (compiledSel) articleContainer.querySelectorAll(compiledSel).forEach(c => { this.detector.markAsProcessed(c); c.classList.add('skeep-substituted'); });
+                if (headlineSel) articleContainer.querySelectorAll(headlineSel).forEach(c => { this.detector.markAsProcessed(c); c.classList.add('skeep-substituted'); });
                 this.detector.markAsProcessed(articleContainer);
+                articleContainer.classList.add('skeep-substituted');
               }
             }
           }
@@ -2113,13 +2121,15 @@ class NewsFilterExtension {
                 this.applyFilter(articleContainer, matchedKeyword);
                 filteredCount++;
                 processedContainers.add(articleContainer);
-                // V8.1.2: Mark all child elements inside composite containers as processed
+                // V8.1.3: Mark all child elements inside composite containers as processed
+                // AND add skeep-substituted class so subsequent scans skip them.
                 this.detector.markAsProcessed(articleContainer);
+                articleContainer.classList.add('skeep-substituted');
                 if (articleContainer !== article) {
                   const compiledSel = this.compiledSelectors;
                   const headlineSel = this.getHeadlineSelectors();
-                  if (compiledSel) articleContainer.querySelectorAll(compiledSel).forEach(c => this.detector.markAsProcessed(c));
-                  if (headlineSel) articleContainer.querySelectorAll(headlineSel).forEach(c => this.detector.markAsProcessed(c));
+                  if (compiledSel) articleContainer.querySelectorAll(compiledSel).forEach(c => { this.detector.markAsProcessed(c); c.classList.add('skeep-substituted'); });
+                  if (headlineSel) articleContainer.querySelectorAll(headlineSel).forEach(c => { this.detector.markAsProcessed(c); c.classList.add('skeep-substituted'); });
                 }
               }
             }
